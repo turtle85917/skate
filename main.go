@@ -61,8 +61,12 @@ func (g *Game) Update() error {
 		directionY = 1
 	}
 
+	skip := len(blockFilter(block, func(b Block) bool {
+		return b.x == player.x+directionX && b.y == player.y
+	})) != 0
+
 	for idx := 0; idx < width; idx++ {
-		if directionX != 0 {
+		if directionX != 0 && !skip {
 			tx := directionX * (idx + 1)
 			bf := blockFilter(block, func(b Block) bool {
 				return (b.x-directionX == player.x+tx && b.y == player.y)
@@ -75,7 +79,23 @@ func (g *Game) Update() error {
 		}
 	}
 
-	player.y += directionY
+	skip = len(blockFilter(block, func(b Block) bool {
+		return b.y == player.y+directionY && b.x == player.x
+	})) != 0
+
+	for idx := 0; idx < height; idx++ {
+		if directionY != 0 && !skip {
+			ty := directionY * (idx + 1)
+			bf := blockFilter(block, func(b Block) bool {
+				return (b.y-directionY == player.y+ty && b.x == player.x)
+			})
+
+			if len(bf) > 0 || player.y+ty < 1 || player.y+ty > height-2 {
+				player.y += directionY * (idx + 1)
+				break
+			}
+		}
+	}
 
 	if player.x < 0 {
 		player.x = 0
@@ -89,14 +109,6 @@ func (g *Game) Update() error {
 	if player.y > height-1 {
 		player.y = height - 1
 	}
-
-	// for len(bf) != 0 {
-	// 	player.x += directionX
-	// 	player.y += directionY
-	// 	bf = blockFilter(block, func(b Block) bool {
-	// 		return b.x == player.x+directionX && b.y == player.y+directionY
-	// 	})
-	// }
 	return nil
 }
 
