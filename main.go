@@ -20,17 +20,22 @@ const (
 var (
 	background = color.RGBA{120, 120, 120, 255}
 	blue       = color.RGBA{0, 112, 255, 255}
+	skyblue    = color.RGBA{27, 229, 235, 255}
 	green      = color.RGBA{0, 255, 46, 255}
 	brown      = color.RGBA{95, 85, 60, 255}
 	mint       = color.RGBA{0, 255, 166, 255}
 
-	player = Player{Point{x: 3, y: 6}}
-	block  = []Block{}
+	player    = Player{Point{x: 3, y: 6}}
+	direction = Point{}
+	goal      = Point{x: 10, y: 11}
+	block     = []Block{}
 
 	board = [height][width]int{}
 )
 
-type Game struct{}
+type Game struct {
+	clear bool
+}
 
 type Point struct {
 	x int
@@ -46,55 +51,62 @@ type Block struct {
 }
 
 func (g *Game) Update() error {
-	var directionX int
-	var directionY int
+	direction = Point{}
+	if g.clear {
+		return nil
+	}
+
 	if inpututil.IsKeyJustPressed(ebiten.KeyLeft) {
-		directionX = -1
+		direction.x = -1
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyRight) {
-		directionX = 1
+		direction.x = 1
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyUp) {
-		directionY = -1
+		direction.y = -1
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyDown) {
-		directionY = 1
+		direction.y = 1
 	}
 
 	skip := len(blockFilter(block, func(b Block) bool {
-		return b.x == player.x+directionX && b.y == player.y
+		return b.x == player.x+direction.x && b.y == player.y
 	})) != 0
 
 	for idx := 0; idx < width; idx++ {
-		if directionX != 0 && !skip {
-			tx := directionX * (idx + 1)
+		if direction.x != 0 && !skip {
+			tx := direction.x * (idx + 1)
 			bf := blockFilter(block, func(b Block) bool {
-				return (b.x-directionX == player.x+tx && b.y == player.y)
+				return (b.x-direction.x == player.x+tx && b.y == player.y)
 			})
 
 			if len(bf) > 0 || player.x+tx < 1 || player.x+tx > width-2 {
-				player.x += directionX * (idx + 1)
+				player.x += direction.x * (idx + 1)
 				break
 			}
 		}
 	}
 
 	skip = len(blockFilter(block, func(b Block) bool {
-		return b.y == player.y+directionY && b.x == player.x
+		return b.y == player.y+direction.y && b.x == player.x
 	})) != 0
 
 	for idx := 0; idx < height; idx++ {
-		if directionY != 0 && !skip {
-			ty := directionY * (idx + 1)
+		if direction.y != 0 && !skip {
+			ty := direction.y * (idx + 1)
 			bf := blockFilter(block, func(b Block) bool {
-				return (b.y-directionY == player.y+ty && b.x == player.x)
+				return (b.y-direction.y == player.y+ty && b.x == player.x)
 			})
 
 			if len(bf) > 0 || player.y+ty < 1 || player.y+ty > height-2 {
-				player.y += directionY * (idx + 1)
+				player.y += direction.y * (idx + 1)
 				break
 			}
 		}
+	}
+
+	if player.x == goal.x && player.y == goal.y {
+		g.clear = true
 	}
 
 	if player.x < 0 {
@@ -120,6 +132,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		board[blo.y][blo.x] = 1
 	}
 
+	board[goal.y][goal.x] = 3
+
 	for y := -1; y < height+1; y++ {
 		for x := -1; x < width+1; x++ {
 			fx := float64(tileSize * (x + 1))
@@ -134,6 +148,22 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			}
 		}
 	}
+
+	image, _, err := ebitenutil.NewImageFromFile("./assets/game-clear.png")
+	if err != nil {
+		log.Print(err)
+	} else if g.clear {
+		sizeX := float64(image.Bounds().Size().X / 2)
+		sizeY := float64(image.Bounds().Size().Y / 2)
+
+		screenCenterX := float64(screenSizeX / 2)
+		screenCenterY := float64(screenSizeY / 2)
+
+		op := ebiten.DrawImageOptions{}
+		op.GeoM.Translate(screenCenterX-sizeX, screenCenterY-sizeY)
+
+		screen.DrawImage(image, &op)
+	}
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
@@ -146,6 +176,8 @@ func getBlock(tile int) color.RGBA {
 		return brown
 	case 2:
 		return green
+	case 3:
+		return skyblue
 	default:
 		return blue
 	}
